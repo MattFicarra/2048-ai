@@ -38,3 +38,9 @@ The learning curve chart updates live. Recent average score and "Best Tile Ever"
 - Expect 1,000–8,000+ training episodes per minute on a modern machine depending on Train strength slider (lower = faster data, still improves well).
 
 Enjoy watching an AI teach itself to master 2048!
+
+---
+
+**Live demo & source**: https://github.com/MattFicarra/2048-ai
+
+Import the repo into Vercel for an instant deployed version (static hosting, worldwide CDN, free).
