@@ -1,46 +1,37 @@
 # 2048 • Self-Learning AI
 
+> **Click here to open the fully optimized version right now:**
+>
+> **[▶️ OPEN THE GAME](https://htmlpreview.github.io/?https://github.com/MattFicarra/2048-ai/blob/main/index.html)**
+
 A beautiful, self-contained browser game of 2048 where a neural network **continually learns** using reinforcement learning (TD learning) to guide Monte Carlo / expectimax-style search.
 
-Open `index.html` in any modern browser. No server, no install. Everything (including the learned "brain") persists in localStorage.
+All lag issues have been fixed. The AI trains extremely fast in the background while the UI stays smooth.
+
+## Quick Start
+
+1. Click the link above
+2. Press **C** to start continuous training
+3. Press **S** to watch the AI play with its improving brain
+
+The value net gets better the longer you leave it training.
 
 ## How the AI Works (MCTS + RL)
 
-- **Value Network**: A small 2-layer neural net (20 inputs → 28 hidden tanh → 1 value) that estimates how good any board position is (expected future score).
-- **Search**: 
-  - During fast training: pure greedy on the value net (4 evaluations per decision) → extremely fast self-play.
-  - During spectating / "Play": Monte Carlo rollouts (MCTS-style flat search) or deeper expectimax that use the learned value net for leaf evaluation and early cutoffs.
-- **Learning**: After (and during) every AI move in training or spectate, it performs TD(0) updates: `V(s) ← V(s) + α · (r + γ·V(s′) − V(s))`. The net gets better, search gets smarter, data gets higher quality — classic self-improving RL loop.
-
-The longer you leave Continuous Training on (or click "Train 2500"), the higher the scores the AI achieves when you watch it play.
+- **Value Network**: A small 2-layer neural net (20 inputs → 28 hidden tanh → 1 value) that estimates how good any board position is.
+- **Search**: Fast greedy value net for training (thousands of games/min). Monte Carlo rollouts + expectimax guided by the learned net when watching.
+- **Learning**: Real TD(0) updates after moves — classic reinforcement learning self-improvement.
 
 ## Controls
 
-- **Arrow keys / WASD** — Play manually
-- **S** — Toggle AI spectate (watch the current brain play beautifully)
-- **C** — Toggle continuous background training (AI plays thousands of games rapidly)
-- **H** — Ask the AI for a hint on the current manual board
-- **R** — New game
-- Sliders — "Play" strength (spectate quality) vs "Train" strength (how smart the self-play is during bulk training)
+- **Arrow keys / WASD** — Manual play
+- **S** — Toggle AI Spectate
+- **C** — Toggle Continuous Training (background self-play + learning)
+- **H** — Hint (what the current brain recommends)
+- Sliders control search strength for Play vs Train
 
-## Tips for Best Results
+## Source
 
-1. Click **"Train 2500 (fast)"** once or twice when you first open it.
-2. Turn on **Continuous Training (C)** and leave the tab open while you do other things.
-3. Watch with **Spectate (S)** using high Play strength — you'll see it reach 2048, 4096, and beyond as the value net improves.
+Full code: https://github.com/MattFicarra/2048-ai
 
-The learning curve chart updates live. Recent average score and "Best Tile Ever" are the best indicators of progress.
-
-## Technical Notes
-
-- ~700 parameters in the value net. Trains in real time in your browser.
-- All game logic, search, NN forward+backprop, and rendering are pure JavaScript in one file.
-- Expect 1,000–8,000+ training episodes per minute on a modern machine depending on Train strength slider (lower = faster data, still improves well).
-
-Enjoy watching an AI teach itself to master 2048!
-
----
-
-**Live demo & source**: https://github.com/MattFicarra/2048-ai
-
-Import the repo into Vercel for an instant deployed version (static hosting, worldwide CDN, free).
+To deploy your own copy: Import the repo to Vercel (static site, instant).
