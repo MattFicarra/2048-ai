@@ -1,0 +1,1171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>2048 • Self-Learning AI</title>
+  <style>
+    :root {
+      --bg: #0b0f1a; --panel: #111827; --accent: #22c55e; --text: #e2e8f0;
+      --tile-bg: #bbada0; --empty: #cdc1b4;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; padding: 0; background: var(--bg); color: var(--text);
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      display: flex; align-items: center; justify-content: center; min-height: 100vh; overflow: hidden;
+    }
+    .app { width: 1040px; max-width: 98vw; }
+    header {
+      display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;
+    }
+    h1 { margin: 0; font-size: 26px; letter-spacing: -.025em; display: flex; align-items: center; gap: 10px; }
+    .episodes {
+      background: #1f2937; padding: 5px 14px; border-radius: 999px; font-size: 13px; font-weight: 600;
+      display: flex; align-items: center; gap: 7px;
+    }
+    .episodes span { color: #22c55e; font-size: 17px; font-variant-numeric: tabular-nums; }
+    .main { display: flex; gap: 16px; align-items: flex-start; }
+    .board-wrap { position: relative; }
+    canvas {
+      border: 1px solid #1f2937; border-radius: 12px; background: #0f172a;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    }
+    .panel {
+      width: 268px; background: var(--panel); border-radius: 12px; border: 1px solid #1f2937;
+      padding: 14px; display: flex; flex-direction: column; gap: 12px; font-size: 13px;
+    }
+    .panel.wide { width: 100%; }
+    .section-title {
+      font-size: 10px; font-weight: 700; letter-spacing: .6px; opacity: .55;
+      margin-bottom: 5px; text-transform: uppercase;
+    }
+    .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+    .stat {
+      background: #1f2937; border-radius: 8px; padding: 7px 9px;
+    }
+    .stat-label { font-size: 9px; opacity: .6; }
+    .stat-value { font-size: 17px; font-weight: 700; line-height: 1.05; font-variant-numeric: tabular-nums; }
+    .controls { display: flex; flex-wrap: wrap; gap: 5px; }
+    button {
+      flex: 1 1 48%; padding: 8px 10px; font-size: 12px; font-weight: 600; border-radius: 7px;
+      border: 1px solid #334155; background: #1f2937; color: #e2e8f0; cursor: pointer;
+      transition: all .1s ease;
+    }
+    button:hover { background: #334155; }
+    button.primary { background: #166534; border-color: #15803d; }
+    button.primary:hover { background: #15803d; }
+    button.danger { background: #3f1f2e; border-color: #6b2b3f; }
+    button.small { flex: 1 1 30%; font-size: 11px; padding: 6px 8px; }
+    .row { display: flex; gap: 6px; }
+    .legend {
+      font-size: 11px; line-height: 1.45; background: #1f2937; padding: 9px; border-radius: 7px;
+      color: #94a3b8;
+    }
+    .legend kbd {
+      background: #334155; padding: 1px 4px; border-radius: 3px; font-size: 10px; font-family: ui-monospace, monospace;
+    }
+    .footer {
+      margin-top: 10px; font-size: 11px; opacity: .5; text-align: center;
+    }
+    .status {
+      position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
+      background: rgba(15,23,42,.9); color: #eab308; padding: 3px 12px; border-radius: 999px;
+      font-size: 12px; font-weight: 600; letter-spacing: .3px; pointer-events: none;
+      display: none; border: 1px solid #334155;
+    }
+    .overlay {
+      position: absolute; inset: 0; background: rgba(11,15,26,.82); display: flex; align-items: center; justify-content: center;
+      border-radius: 12px; flex-direction: column; gap: 8px; font-size: 14px; z-index: 10; text-align: center;
+    }
+    .overlay.hidden { display: none; }
+    .big { font-size: 20px; font-weight: 700; }
+    .train-badge {
+      position: absolute; top: 10px; right: 10px; background: #854d0e; color: #fefce8;
+      padding: 2px 9px; border-radius: 999px; font-size: 10px; font-weight: 700; letter-spacing: .5px;
+      display: none; z-index: 20;
+    }
+    .slider-row { display: flex; align-items: center; gap: 8px; font-size: 11px; }
+    .slider-row input { flex: 1; accent-color: #22c55e; }
+    .mini-chart {
+      width: 100%; height: 68px; background: #1f2937; border-radius: 7px; margin-top: 3px;
+    }
+    .ai-info {
+      font-size: 11px; background: #1f2937; padding: 8px 9px; border-radius: 7px; line-height: 1.4;
+    }
+    .move-hint {
+      font-size: 10px; opacity: .7; margin-top: 2px;
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <h1>2048 <span style="color:#64748b;font-size:15px;font-weight:500;">• AI that Learns</span></h1>
+      <div class="episodes">Episodes <span id="ep-val">0</span></div>
+    </header>
+
+    <div class="main" style="position:relative">
+      <div class="board-wrap">
+        <canvas id="game" width="460" height="460"></canvas>
+        <div id="train-badge" class="train-badge">FAST TRAINING • 1000s games/min</div>
+        <div id="overlay" class="overlay">
+          <div class="big">Ready to watch the AI learn?</div>
+          <div style="opacity:.75; font-size:12.5px; max-width:240px;">
+            It uses Monte Carlo search + a neural value function trained with TD reinforcement learning.<br>
+            The more it trains, the higher it scores.
+          </div>
+          <div style="display:flex; gap:8px; margin-top:4px;">
+            <button onclick="startNewGame()" style="flex:none; padding:9px 18px; width:auto;">Start Fresh Game</button>
+            <button onclick="startSpectate()" class="primary" style="flex:none; padding:9px 18px; width:auto;">Watch AI Play</button>
+          </div>
+        </div>
+        <div id="status" class="status"></div>
+      </div>
+
+      <div style="display:flex; flex-direction:column; gap:12px;">
+        <!-- AI Brain Panel -->
+        <div class="panel">
+          <div>
+            <div class="section-title">AI Brain (RL Value Net)</div>
+            <div class="stats-grid">
+              <div class="stat"><div class="stat-label">Episodes Trained</div><div id="stat-ep" class="stat-value">0</div></div>
+              <div class="stat"><div class="stat-label">Peak Avg Score</div><div id="stat-peak" class="stat-value">—</div></div>
+              <div class="stat"><div class="stat-label">Recent Avg</div><div id="stat-avg" class="stat-value">—</div></div>
+              <div class="stat"><div class="stat-label">Best Tile Ever</div><div id="stat-tile" class="stat-value">—</div></div>
+            </div>
+          </div>
+
+          <div>
+            <div class="section-title">Learning Curve (last 400 episodes)</div>
+            <canvas id="chart" width="240" height="68" class="mini-chart"></canvas>
+          </div>
+
+          <div class="ai-info">
+            <strong>Strategy:</strong> <span id="strat-label">MC + Value Net</span><br>
+            <span class="move-hint">Value net guides rollouts &amp; early cutoffs (MCTS-style + RL)</span>
+          </div>
+        </div>
+
+        <!-- Controls -->
+        <div class="panel">
+          <div>
+            <div class="section-title">Controls</div>
+            <div class="controls">
+              <button onclick="startNewGame()" class="primary">New Game</button>
+              <button onclick="toggleSpectate()">Toggle AI Spectate (S)</button>
+              <button onclick="aiStep()">AI Step (one move)</button>
+              <button onclick="toggleContinuousTrain()">Continuous Train (C)</button>
+              <button onclick="bulkTrain(800)" class="small">Train 800 games</button>
+              <button onclick="bulkTrain(2500)" class="small">Train 2500 (fast)</button>
+              <button onclick="showHint()" class="small">Hint (H)</button>
+              <button onclick="resetBrain()" class="danger small">Reset Brain</button>
+            </div>
+          </div>
+
+          <div>
+            <div class="section-title">Search Strength</div>
+            <div class="slider-row">
+              <span style="width:46px;opacity:.7;">Play</span>
+              <input id="strength-play" type="range" min="1" max="6" step="1" value="3">
+              <span id="strength-play-val" style="width:26px;text-align:right;font-variant-numeric:tabular-nums;">3</span>
+            </div>
+            <div class="slider-row">
+              <span style="width:46px;opacity:.7;">Train</span>
+              <input id="strength-train" type="range" min="0" max="4" step="1" value="1">
+              <span id="strength-train-val" style="width:26px;text-align:right;font-variant-numeric:tabular-nums;">1</span>
+            </div>
+            <div style="font-size:10px;opacity:.55;margin-top:2px;">Higher = smarter but slower decisions. Train low for speed.</div>
+          </div>
+
+          <div class="legend">
+            <strong>Keys:</strong> Arrows/WASD = manual move • <kbd>S</kbd> spectate • <kbd>C</kbd> continuous train • <kbd>H</kbd> hint • <kbd>R</kbd> new game<br>
+            <span style="opacity:.65">Train in background to watch the AI steadily improve its scores.</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer">
+      Fully self-contained. All learning (value net weights + stats) saved in localStorage. Leave continuous training on to watch it master 2048 over time.
+    </div>
+  </div>
+
+<script>
+// ==================== CONSTANTS ====================
+const SIZE = 4;
+const CELL = 104;
+const GAP = 12;
+const BOARD_PX = SIZE * CELL + (SIZE + 1) * GAP;
+
+const TILE_COLORS = {
+  0: '#cdc1b4',
+  2: '#eee4da', 4: '#ede0c8', 8: '#f2b179', 16: '#f59563',
+  32: '#f67c5f', 64: '#f65e3b', 128: '#edcf72', 256: '#edcc61',
+  512: '#edc850', 1024: '#edc53f', 2048: '#edc22e',
+  4096: '#3c9f6e', 8192: '#2f7a55', 16384: '#1e4d34'
+};
+
+const TILE_TEXT_COLORS = {
+  2: '#776e65', 4: '#776e65', 8: '#f9f6f2', 16: '#f9f6f2',
+  32: '#f9f6f2', 64: '#f9f6f2', 128: '#f9f6f2', 256: '#f9f6f2',
+  512: '#f9f6f2', 1024: '#f9f6f2', 2048: '#f9f6f2'
+};
+
+// NN config: 16 (log board) + 4 features = 20 inputs, 28 hidden, 1 value output
+const INPUT_DIM = 20;
+const HIDDEN_DIM = 28;
+const GAMMA = 0.96;
+const LR = 0.004;           // base learning rate for TD
+const LR_DECAY = 0.99998;   // slow decay over many updates
+
+// ==================== STATE ====================
+let canvas, ctx, chartCanvas, chartCtx;
+let board = Array.from({length: SIZE}, () => Array(SIZE).fill(0));
+let score = 0;
+let gameOver = false;
+let animating = false;
+
+let episodes = 0;
+let recentScores = [];          // ring buffer for avg
+let peakAvg = 0;
+let bestTileEver = 0;
+let scoreHistory = [];          // for chart (bucketed)
+
+let valueNet = null;            // the learned RL brain
+let totalTDUpdates = 0;
+let learningRate = LR;
+
+let spectating = false;
+let continuousTraining = false;
+let trainInterval = null;
+let specInterval = null;
+
+let lastMoveDir = null;
+let animTiles = [];
+let drawScheduled = false;
+let audioCtx = null;
+
+// Search strength (1-6 play, 0-4 train)
+let playStrength = 3;
+let trainStrength = 1;
+
+// ==================== HELPERS ====================
+function cloneBoard(b) {
+  return b.map(row => row.slice());
+}
+
+function getEmptyPositions(b) {
+  const empties = [];
+  for (let r=0; r<SIZE; r++) for (let c=0; c<SIZE; c++) if (!b[r][c]) empties.push([r,c]);
+  return empties;
+}
+
+function isGameOver(b) {
+  if (getEmptyPositions(b).length > 0) return false;
+  for (let r=0; r<SIZE; r++) {
+    for (let c=0; c<SIZE; c++) {
+      const v = b[r][c];
+      if ((c < SIZE-1 && b[r][c+1] === v) || (r < SIZE-1 && b[r+1][c] === v)) return false;
+    }
+  }
+  return true;
+}
+
+function getMaxTile(b) {
+  let m = 0;
+  for (let r=0; r<SIZE; r++) for (let c=0; c<SIZE; c++) m = Math.max(m, b[r][c]);
+  return m;
+}
+
+function addRandomTile(b) {
+  const empties = getEmptyPositions(b);
+  if (!empties.length) return false;
+  const [r,c] = empties[(Math.random() * empties.length) | 0];
+  b[r][c] = Math.random() < 0.9 ? 2 : 4;
+  return true;
+}
+
+function playSound(type) {
+  try {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const o = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    o.connect(g); g.connect(audioCtx.destination);
+
+    if (type === 'merge') {
+      o.type = 'sine'; o.frequency.value = 520;
+      g.gain.value = 0.07;
+      g.gain.linearRampToValueAtTime(0.0001, audioCtx.currentTime + 0.11);
+      o.start(); o.stop(audioCtx.currentTime + 0.12);
+    } else if (type === 'pop') {
+      o.type = 'triangle'; o.frequency.value = 880;
+      g.gain.value = 0.05;
+      g.gain.linearRampToValueAtTime(0.0001, audioCtx.currentTime + 0.08);
+      o.start(); o.stop(audioCtx.currentTime + 0.09);
+    }
+  } catch(e){}
+}
+
+// Slide + merge one line. Returns {line, gained}
+function slideAndMerge(line) {
+  let arr = line.filter(v => v > 0);
+  let gained = 0;
+  for (let i = 0; i < arr.length - 1; i++) {
+    if (arr[i] === arr[i+1]) {
+      arr[i] *= 2;
+      gained += arr[i];
+      arr.splice(i+1, 1);
+    }
+  }
+  while (arr.length < SIZE) arr.push(0);
+  return {line: arr, gained};
+}
+
+function moveBoard(b, dir) {
+  // dir: 0=up, 1=right, 2=down, 3=left
+  const nb = cloneBoard(b);
+  let gained = 0;
+  let moved = false;
+
+  if (dir === 0 || dir === 2) { // vertical
+    for (let c=0; c<SIZE; c++) {
+      let col = [nb[0][c], nb[1][c], nb[2][c], nb[3][c]];
+      if (dir === 2) col.reverse();
+      const res = slideAndMerge(col);
+      if (dir === 2) res.line.reverse();
+      for (let r=0; r<SIZE; r++) {
+        if (nb[r][c] !== res.line[r]) moved = true;
+        nb[r][c] = res.line[r];
+      }
+      gained += res.gained;
+    }
+  } else { // horizontal
+    for (let r=0; r<SIZE; r++) {
+      let row = nb[r].slice();
+      if (dir === 1) row.reverse();
+      const res = slideAndMerge(row);
+      if (dir === 1) res.line.reverse();
+      if (JSON.stringify(nb[r]) !== JSON.stringify(res.line)) moved = true;
+      nb[r] = res.line;
+      gained += res.gained;
+    }
+  }
+  return {board: nb, gained, moved};
+}
+
+// ==================== VALUE NETWORK (RL BRAIN) ====================
+// Small 2-layer net: 20 inputs -> 28 hidden (tanh) -> 1 scalar value
+// Used both for leaf eval in search and for TD learning updates
+
+function createValueNet() {
+  // Xavier-ish init
+  const net = {
+    w1: [], b1: [], w2: [], b2: 0,
+    // cache for last forward (needed for simple backprop)
+    lastIn: null, lastHidden: null, lastV: 0
+  };
+  const scale1 = Math.sqrt(2 / INPUT_DIM);
+  const scale2 = Math.sqrt(2 / HIDDEN_DIM);
+
+  for (let h=0; h<HIDDEN_DIM; h++) {
+    const row = [];
+    for (let i=0; i<INPUT_DIM; i++) row.push((Math.random()*2-1) * scale1);
+    net.w1.push(row);
+    net.b1.push((Math.random()*2-1) * 0.15);
+  }
+  for (let i=0; i<HIDDEN_DIM; i++) {
+    net.w2.push((Math.random()*2-1) * scale2);
+  }
+  net.b2 = (Math.random()*2-1) * 0.1;
+  return net;
+}
+
+function encodeBoard(b) {
+  // 16 log2-normalized tiles + 4 global features
+  const feats = new Array(INPUT_DIM);
+  let idx = 0;
+  let sumLog = 0, empty = 0, maxLog = 0;
+
+  for (let r=0; r<SIZE; r++) {
+    for (let c=0; c<SIZE; c++) {
+      const v = b[r][c];
+      const lg = v ? Math.log2(v) / 14 : 0;  // 2^14 ~ 16k is plenty
+      feats[idx++] = lg;
+      if (v) {
+        sumLog += lg;
+        if (lg > maxLog) maxLog = lg;
+      } else {
+        empty++;
+      }
+    }
+  }
+  // global features
+  feats[idx++] = empty / 16;
+  feats[idx++] = maxLog;
+  feats[idx++] = Math.min(sumLog / 28, 1); // rough normalized mass
+  feats[idx++] = 1.0; // bias
+
+  return feats;
+}
+
+function forward(net, b) {
+  const x = encodeBoard(b);
+  net.lastIn = x;
+
+  const h = new Array(HIDDEN_DIM);
+  for (let j=0; j<HIDDEN_DIM; j++) {
+    let s = net.b1[j];
+    for (let i=0; i<INPUT_DIM; i++) s += x[i] * net.w1[j][i];
+    h[j] = Math.tanh(s);
+  }
+  net.lastHidden = h;
+
+  let v = net.b2;
+  for (let j=0; j<HIDDEN_DIM; j++) v += h[j] * net.w2[j];
+  net.lastV = v;
+  return v;
+}
+
+// TD update: given current board (s), next board after transition (s2), immediate reward (score gained)
+// target = r + gamma * V(s2)   (we treat after-move boards as states)
+function tdUpdate(net, boardS, boardS2, reward) {
+  const v = forward(net, boardS);
+  const v2 = forward(net, boardS2);
+  const target = reward + GAMMA * v2;
+  const err = target - v;
+
+  // Backprop (semi-gradient TD)
+  // Output layer gradient
+  const dOut = err; // dL/dv = (target-v) for MSE/2
+
+  // Update output weights + bias
+  const lr = learningRate;
+  net.b2 += lr * dOut;
+  for (let j=0; j<HIDDEN_DIM; j++) {
+    net.w2[j] += lr * dOut * net.lastHidden[j];
+  }
+
+  // Hidden layer: dL/dh_j = dOut * w2_j
+  // Then dh = (1 - h^2) for tanh
+  for (let j=0; j<HIDDEN_DIM; j++) {
+    const dh = dOut * net.w2[j] * (1 - net.lastHidden[j] * net.lastHidden[j]);
+    net.b1[j] += lr * dh;
+    for (let i=0; i<INPUT_DIM; i++) {
+      net.w1[j][i] += lr * dh * net.lastIn[i];
+    }
+  }
+
+  totalTDUpdates++;
+  learningRate *= LR_DECAY;
+  if (learningRate < 0.0004) learningRate = 0.0004;
+  return err;
+}
+
+// Serialize / deserialize
+function serializeNet(net) {
+  return {
+    w1: net.w1.map(r => r.slice()),
+    b1: net.b1.slice(),
+    w2: net.w2.slice(),
+    b2: net.b2
+  };
+}
+function deserializeNet(data) {
+  const net = createValueNet(); // start with random then overwrite
+  net.w1 = data.w1.map(r => r.slice());
+  net.b1 = data.b1.slice();
+  net.w2 = data.w2.slice();
+  net.b2 = data.b2;
+  return net;
+}
+
+// ==================== MONTE CARLO + EXPECTIMAX SEARCH (MCTS-like) ====================
+
+// Fast random rollout using current net for cutoff (key to speed + quality)
+function rolloutValue(b, maxDepth = 6) {
+  let cur = cloneBoard(b);
+  let sc = 0;
+  let d = 0;
+
+  while (d < maxDepth) {
+    const empties = getEmptyPositions(cur);
+    if (empties.length === 0) break;
+
+    // random legal move
+    const dirs = [0,1,2,3];
+    let moved = false;
+    for (let attempt=0; attempt<4; attempt++) {
+      const dir = dirs[(Math.random()*4)|0];
+      const res = moveBoard(cur, dir);
+      if (res.moved) {
+        cur = res.board;
+        sc += res.gained;
+        addRandomTile(cur);
+        moved = true;
+        break;
+      }
+    }
+    if (!moved) break;
+    d++;
+  }
+  // Use learned value at cutoff (this is what makes it "MCTS with RL value")
+  return sc + forward(valueNet, cur) * 0.6; // scale to blend
+}
+
+// Monte Carlo search for a move (close to flat MCTS)
+function mcSearch(currentBoard, numSims, cutoffDepth) {
+  let bestDir = -1;
+  let bestVal = -Infinity;
+
+  for (let dir=0; dir<4; dir++) {
+    const res = moveBoard(currentBoard, dir);
+    if (!res.moved) continue;
+
+    // Sample a few possible spawns (realistic)
+    const empties = getEmptyPositions(res.board);
+    if (empties.length === 0) {
+      const val = res.gained + forward(valueNet, res.board);
+      if (val > bestVal) { bestVal = val; bestDir = dir; }
+      continue;
+    }
+
+    let total = 0;
+    const trials = Math.min(numSims, 28);
+
+    for (let t=0; t<trials; t++) {
+      // Spawn one realistic tile
+      const spawnBoard = cloneBoard(res.board);
+      const [er, ec] = empties[(Math.random()*empties.length)|0];
+      spawnBoard[er][ec] = Math.random() < 0.9 ? 2 : 4;
+
+      total += rolloutValue(spawnBoard, cutoffDepth);
+    }
+    const avg = res.gained + (total / trials);
+    if (avg > bestVal) { bestVal = avg; bestDir = dir; }
+  }
+  return bestDir >= 0 ? bestDir : 0;
+}
+
+// Expectimax with value net at leaves (often stronger per node)
+function expectimax(board, depth, isPlayer) {
+  if (depth <= 0 || isGameOver(board)) {
+    return forward(valueNet, board);
+  }
+
+  if (isPlayer) {
+    let best = -1e9;
+    for (let d=0; d<4; d++) {
+      const res = moveBoard(board, d);
+      if (!res.moved) continue;
+      // After player move -> chance nodes (spawns)
+      const val = expectimaxChance(res.board, depth - 1, res.gained);
+      if (val > best) best = val;
+    }
+    return best;
+  } else {
+    // chance node (should not be reached at top in our call pattern)
+    return expectimaxChance(board, depth, 0);
+  }
+}
+
+function expectimaxChance(board, depth, baseScore) {
+  const empties = getEmptyPositions(board);
+  if (!empties.length) return baseScore + forward(valueNet, board);
+
+  let sum = 0;
+  const p2 = 0.9 / empties.length;
+  const p4 = 0.1 / empties.length;
+
+  for (const [r,c] of empties) {
+    // spawn 2
+    const b2 = cloneBoard(board); b2[r][c] = 2;
+    sum += p2 * expectimax(b2, depth, true);
+    // spawn 4
+    const b4 = cloneBoard(board); b4[r][c] = 4;
+    sum += p4 * expectimax(b4, depth, true);
+  }
+  return baseScore + sum;
+}
+
+function getBestMove(currentBoard, strength) {
+  // strength 0 = almost random/greedy net only
+  // strength 1-2 = fast MC
+  // 3-6 = deeper MC or expectimax
+  if (!valueNet) valueNet = createValueNet();
+
+  const empties = getEmptyPositions(currentBoard).length;
+  if (strength <= 0) {
+    // pure greedy on value net (fastest)
+    let bestD = -1, bestV = -1e9;
+    for (let d=0; d<4; d++) {
+      const res = moveBoard(currentBoard, d);
+      if (!res.moved) continue;
+      const v = res.gained + forward(valueNet, res.board);
+      if (v > bestV) { bestV = v; bestD = d; }
+    }
+    return bestD >= 0 ? bestD : 0;
+  }
+
+  if (strength >= 5) {
+    // Deeper expectimax (expensive but strong)
+    let bestD = -1, bestV = -1e9;
+    for (let d=0; d<4; d++) {
+      const res = moveBoard(currentBoard, d);
+      if (!res.moved) continue;
+      const val = expectimaxChance(res.board, 2 + (strength > 5 ? 1 : 0), res.gained);
+      if (val > bestV) { bestV = val; bestD = d; }
+    }
+    return bestD >= 0 ? bestD : 0;
+  }
+
+  // Default: Monte Carlo search (MCTS-style) guided by value net
+  const sims = Math.floor(7 + strength * 5 + (empties > 6 ? 4 : 0));
+  const cutoff = 4 + Math.floor(strength / 1.5);
+  const d = mcSearch(currentBoard, sims, cutoff);
+  return d >= 0 ? d : 0;
+}
+
+// ==================== ANIMATION & RENDER (reliable instant + pop) ====================
+function startNewGame() {
+  board = Array.from({length: SIZE}, () => Array(SIZE).fill(0));
+  score = 0;
+  gameOver = false;
+  animTiles = [];
+  animating = false;
+  addRandomTile(board);
+  addRandomTile(board);
+  spectating = false;
+  if (specInterval) { clearInterval(specInterval); specInterval = null; }
+  document.getElementById('overlay').classList.add('hidden');
+  scheduleDraw();
+  updateStatsUI();
+}
+
+function draw() {
+  ctx.fillStyle = '#0f172a';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  ctx.fillStyle = '#bbada0';
+  ctx.fillRect(GAP/2, GAP/2, BOARD_PX - GAP, BOARD_PX - GAP);
+
+  ctx.fillStyle = '#cdc1b4';
+  for (let r = 0; r < SIZE; r++) {
+    for (let c = 0; c < SIZE; c++) {
+      ctx.fillRect(GAP + c * (CELL + GAP), GAP + r * (CELL + GAP), CELL, CELL);
+    }
+  }
+
+  // Tiles only (animation branch removed — it was a major source of jank)
+  for (let r = 0; r < SIZE; r++) {
+    for (let c = 0; c < SIZE; c++) {
+      const val = board[r][c];
+      if (!val) continue;
+
+      const x = GAP + c * (CELL + GAP);
+      const y = GAP + r * (CELL + GAP);
+      const bg = TILE_COLORS[val] || '#3c9f6e';
+      const fg = TILE_TEXT_COLORS[val] || '#f9f6f2';
+
+      ctx.fillStyle = bg;
+      ctx.fillRect(x, y, CELL, CELL);
+
+      ctx.fillStyle = fg;
+      ctx.font = (val >= 1024 ? 'bold 28px' : val >= 128 ? 'bold 34px' : 'bold 40px') + ' system-ui';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(val.toString(), x + CELL/2, y + CELL/2 + 2);
+    }
+  }
+
+  // Score badge
+  ctx.fillStyle = 'rgba(15,23,42,0.75)';
+  ctx.fillRect(12, 12, 118, 34);
+  ctx.fillStyle = '#e2e8f0';
+  ctx.font = '12px system-ui';
+  ctx.textAlign = 'left';
+  ctx.fillText('SCORE', 18, 24);
+  ctx.font = 'bold 17px system-ui';
+  ctx.fillText(score.toLocaleString(), 18, 40);
+}
+
+// Very cheap batched draw scheduler — prevents dozens of draw() calls per frame
+function scheduleDraw() {
+  if (drawScheduled) return;
+  drawScheduled = true;
+  requestAnimationFrame(() => {
+    drawScheduled = false;
+    draw();
+  });
+}
+
+function spawnPop(r, c, val) {
+  // Ultra cheap — the expensive per-frame version was the #1 cause of lag
+  scheduleDraw();
+  setTimeout(() => { if (!gameOver) scheduleDraw(); }, 55);
+}
+
+// ==================== GAME ACTIONS ====================
+function doMove(dir) {
+  if (gameOver || animating) return false;
+
+  const res = moveBoard(board, dir);
+  if (!res.moved) return false;
+
+  lastMoveDir = dir;
+  animating = true;
+
+  // Apply move + score immediately (clean & reliable)
+  board = res.board;
+  score += res.gained;
+  if (res.gained > 0) playSound('merge');
+  scheduleDraw();
+
+  // Spawn new tile with nice pop
+  setTimeout(() => {
+    const empties = getEmptyPositions(board);
+    if (empties.length) {
+      const [sr, sc] = empties[(Math.random()*empties.length)|0];
+      const newVal = Math.random() < 0.9 ? 2 : 4;
+      board[sr][sc] = newVal;
+      playSound('pop');
+      spawnPop(sr, sc, newVal);
+    }
+
+    const m = getMaxTile(board);
+    if (m > bestTileEver) bestTileEver = m;
+
+    if (isGameOver(board)) {
+      gameOver = true;
+      setTimeout(showGameOver, 280);
+    }
+
+    // Occasional chart update during manual/spectate
+    if (recentScores.length && recentScores.length % 11 === 0) {
+      const bucket = recentScores.slice(-26).reduce((a,c)=>a+c,0) / Math.min(26,recentScores.length) | 0;
+      scoreHistory.push(bucket);
+      if (scoreHistory.length > 38) scoreHistory.shift();
+      drawChart();
+    }
+
+    animating = false;
+    scheduleDraw();
+    updateStatsUI();
+
+    // Chain next AI move when spectating
+    if (spectating && !gameOver) {
+      setTimeout(() => {
+        if (spectating && !gameOver && !animating) aiStep(true);
+      }, 78);
+    }
+  }, 52);
+
+  return true;
+}
+
+function showGameOver() {
+  // Record completed game for stats (works for both human and AI play)
+  if (score > 120) {
+    recentScores.push(score);
+    if (recentScores.length > 420) recentScores.shift();
+    if (score > peakAvg) peakAvg = score;
+    // chart
+    scoreHistory.push(score);
+    if (scoreHistory.length > 38) scoreHistory.shift();
+    drawChart();
+  }
+
+  const overlay = document.getElementById('overlay');
+  overlay.classList.remove('hidden');
+  overlay.innerHTML = `
+    <div class="big">Game Over</div>
+    <div style="font-size:15px;margin:4px 0 8px">Final score: <strong>${score.toLocaleString()}</strong> • Tile ${getMaxTile(board)}</div>
+    <div style="display:flex;gap:8px;justify-content:center">
+      <button onclick="startNewGame()" style="width:auto;padding:8px 20px">New Game</button>
+      <button onclick="startSpectate()" class="primary" style="width:auto;padding:8px 20px">Let AI Try</button>
+    </div>
+  `;
+}
+
+// ==================== AI SPECTATE & TRAINING ====================
+function aiStep(fromSpectate = false) {
+  if (gameOver || animating) return;
+
+  // Cap strength during live spectate so the page doesn't lag
+  let strength = fromSpectate ? Math.min(Math.max(playStrength, 2), 4) : playStrength;
+  const dir = getBestMove(board, strength);
+
+  const res = moveBoard(board, dir);
+  if (!res.moved) {
+    // fallback random
+    for (let d=0; d<4; d++) if (moveBoard(board, d).moved) { doMove(d); return; }
+    return;
+  }
+
+  // Record transition for learning (throttled during visible spectate to reduce jank)
+  if (valueNet && (spectating || continuousTraining)) {
+    const afterMove = res.board;
+    const e = getEmptyPositions(afterMove);
+    if (e.length && (Math.random() < (continuousTraining ? 0.9 : 0.55))) {
+      const [er,ec] = e[(Math.random()*e.length)|0];
+      const spawnVal = Math.random()<0.9 ? 2 : 4;
+      const s2 = cloneBoard(afterMove); s2[er][ec] = spawnVal;
+      tdUpdate(valueNet, board, s2, res.gained);
+    }
+  }
+
+  doMove(dir);
+}
+
+function startSpectate() {
+  document.getElementById('overlay').classList.add('hidden');
+  if (gameOver || !board.some(r=>r.some(v=>v))) startNewGame();
+
+  spectating = true;
+  if (specInterval) clearInterval(specInterval);
+
+  // Gentler pace for smooth UI (was causing jank at high search strength)
+  specInterval = setInterval(() => {
+    if (!spectating || gameOver || animating) return;
+    aiStep(true);
+  }, 175);
+
+  const s = document.getElementById('status');
+  s.textContent = 'AI SPECTATING';
+  s.style.display = 'block';
+  setTimeout(() => { if (!gameOver) s.style.display = 'none'; }, 1200);
+}
+
+function toggleSpectate() {
+  if (spectating) {
+    spectating = false;
+    if (specInterval) { clearInterval(specInterval); specInterval = null; }
+  } else {
+    startSpectate();
+  }
+}
+
+function bulkTrain(count) {
+  if (trainInterval) clearInterval(trainInterval);
+
+  const badge = document.getElementById('train-badge');
+  badge.style.display = 'block';
+  badge.textContent = `TRAINING • ${count} GAMES`;
+
+  let done = 0;
+  let batchScores = [];
+  const startEp = episodes;
+
+  function oneGame() {
+    if (done >= count) {
+      badge.style.display = 'none';
+      if (trainInterval) { clearInterval(trainInterval); trainInterval = null; }
+      updateStatsUI();
+      drawChart();
+      return;
+    }
+
+    // Fast headless game
+    let b = Array.from({length:SIZE},()=>Array(SIZE).fill(0));
+    addRandomTile(b); addRandomTile(b);
+    let sc = 0;
+    let moves = 0;
+    const maxMoves = 420;
+    const str = Math.min(trainStrength, 1); // Force very fast path for bulk training (slider still works for manual tests)
+
+    while (moves < maxMoves && !isGameOver(b)) {
+      const dir = getBestMove(b, str);
+      const res = moveBoard(b, dir);
+      if (!res.moved) break;
+      b = res.board;
+      sc += res.gained;
+      const e = getEmptyPositions(b);
+      if (e.length) {
+        const [r,c] = e[(Math.random()*e.length)|0];
+        b[r][c] = Math.random()<0.9?2:4;
+      }
+
+      // TD learning — only every 3rd move in fast training (still learns very well, ~3x less work)
+      if (valueNet && e.length && (moves % 3 === 0)) {
+        const s2 = cloneBoard(b);
+        tdUpdate(valueNet, b, s2, res.gained * 0.6);
+      }
+      moves++;
+    }
+
+    const mt = getMaxTile(b);
+    if (mt > bestTileEver) bestTileEver = mt;
+
+    episodes++;
+    recentScores.push(sc);
+    if (recentScores.length > 420) recentScores.shift();
+
+    batchScores.push(sc);
+    if (batchScores.length > 55) batchScores.shift();
+
+    done++;
+
+    // Much less frequent UI updates during heavy training (biggest remaining source of lag)
+    const uiUpdateEvery = 160;
+    if (done % uiUpdateEvery === 0 || done === count) {
+      const avg = batchScores.reduce((a,c)=>a+c,0) / batchScores.length | 0;
+      if (avg > peakAvg) peakAvg = avg;
+      scoreHistory.push(avg);
+      if (scoreHistory.length > 38) scoreHistory.shift();
+      updateStatsUI();
+      drawChart();
+      document.getElementById('ep-val').textContent = episodes.toLocaleString();
+    }
+
+    // Better yielding — always yield after a batch of games
+    if (done % 12 === 0) {
+      setTimeout(oneGame, 1);   // 1ms yield is enough to keep UI alive
+    } else {
+      oneGame();
+    }
+  }
+
+  oneGame();
+}
+
+function toggleContinuousTrain() {
+  continuousTraining = !continuousTraining;
+  const badge = document.getElementById('train-badge');
+
+  if (continuousTraining) {
+    badge.style.display = 'block';
+    badge.textContent = 'CONTINUOUS TRAINING';
+
+    // Run one modest chunk then yield longer so the page stays responsive
+    function loop() {
+      if (!continuousTraining) return;
+      bulkTrain(220);           // one chunk of fast headless games
+      setTimeout(loop, 650);    // longer pause between chunks
+    }
+    loop();
+  } else {
+    badge.style.display = 'none';
+    if (trainInterval) { clearInterval(trainInterval); trainInterval = null; }
+  }
+}
+
+// ==================== HINT ====================
+function showHint() {
+  if (gameOver || animating) return;
+  const dir = getBestMove(board, Math.max(playStrength, 3));
+  const names = ['↑ UP', '→ RIGHT', '↓ DOWN', '← LEFT'];
+  const s = document.getElementById('status');
+  s.textContent = `AI HINT: ${names[dir]}`;
+  s.style.display = 'block';
+  setTimeout(() => { if (!spectating) s.style.display = 'none'; }, 1350);
+}
+
+// ==================== UI & PERSISTENCE ====================
+function updateStatsUI() {
+  document.getElementById('ep-val').textContent = episodes.toLocaleString();
+  document.getElementById('stat-ep').textContent = episodes.toLocaleString();
+  document.getElementById('stat-peak').textContent = peakAvg ? peakAvg.toLocaleString() : '—';
+  const recentAvg = recentScores.length ? (recentScores.reduce((a,c)=>a+c,0) / recentScores.length | 0) : 0;
+  document.getElementById('stat-avg').textContent = recentAvg ? recentAvg.toLocaleString() : '—';
+  document.getElementById('stat-tile').textContent = bestTileEver ? bestTileEver.toLocaleString() : '—';
+}
+
+function drawChart() {
+  if (!chartCtx) return;
+  const w = chartCanvas.width, h = chartCanvas.height;
+  chartCtx.fillStyle = '#1f2937';
+  chartCtx.fillRect(0, 0, w, h);
+
+  if (scoreHistory.length < 2) {
+    chartCtx.fillStyle = '#64748b';
+    chartCtx.font = '10px system-ui';
+    chartCtx.fillText(scoreHistory.length ? 'Training...' : 'Play or train to see learning curve', 12, h/2 + 3);
+    return;
+  }
+
+  const maxS = Math.max(...scoreHistory) || 10000;
+  const minS = Math.min(...scoreHistory) * 0.55;
+  const range = Math.max(1200, maxS - minS);
+
+  chartCtx.strokeStyle = '#22c55e';
+  chartCtx.lineWidth = 2;
+  chartCtx.beginPath();
+
+  for (let i=0; i<scoreHistory.length; i++) {
+    const x = 4 + (i / (scoreHistory.length-1)) * (w-8);
+    const y = h-4 - ((scoreHistory[i] - minS) / range) * (h-10);
+    if (i===0) chartCtx.moveTo(x, y);
+    else chartCtx.lineTo(x, y);
+  }
+  chartCtx.stroke();
+
+  // subtle area
+  chartCtx.lineTo(w-4, h-4);
+  chartCtx.lineTo(4, h-4);
+  chartCtx.closePath();
+  chartCtx.fillStyle = 'rgba(34,197,94,0.12)';
+  chartCtx.fill();
+}
+
+function saveState() {
+  try {
+    const data = {
+      episodes, recentScores, peakAvg, bestTileEver, scoreHistory,
+      net: valueNet ? serializeNet(valueNet) : null,
+      learningRate, totalTDUpdates
+    };
+    localStorage.setItem('ai2048_v1', JSON.stringify(data));
+  } catch(e){}
+}
+
+function loadState() {
+  try {
+    const raw = localStorage.getItem('ai2048_v1');
+    if (!raw) return false;
+    const d = JSON.parse(raw);
+    episodes = d.episodes || 0;
+    recentScores = d.recentScores || [];
+    peakAvg = d.peakAvg || 0;
+    bestTileEver = d.bestTileEver || 0;
+    scoreHistory = d.scoreHistory || [];
+    if (d.net) valueNet = deserializeNet(d.net);
+    learningRate = d.learningRate || LR;
+    totalTDUpdates = d.totalTDUpdates || 0;
+    return true;
+  } catch(e){ return false; }
+}
+
+function resetBrain() {
+  if (!confirm('Reset the learned value network and all stats?')) return;
+  valueNet = createValueNet();
+  episodes = 0;
+  recentScores = [];
+  peakAvg = 0;
+  bestTileEver = 0;
+  scoreHistory = [];
+  learningRate = LR;
+  totalTDUpdates = 0;
+  localStorage.removeItem('ai2048_v1');
+  updateStatsUI();
+  drawChart();
+  document.getElementById('ep-val').textContent = '0';
+  startNewGame();
+}
+
+// ==================== INPUT ====================
+function setupInput() {
+  window.addEventListener('keydown', e => {
+    const k = e.key;
+    if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','w','a','s','d','W','A','S','D',' ','r','R','s','S','c','C','h','H'].includes(k)) {
+      e.preventDefault();
+    }
+
+    if (k === 'r' || k === 'R') { startNewGame(); return; }
+    if (k === 's' || k === 'S') { toggleSpectate(); return; }
+    if (k === 'c' || k === 'C') { toggleContinuousTrain(); return; }
+    if (k === 'h' || k === 'H') { showHint(); return; }
+    if (k === ' ') { /* could pause but not critical */ return; }
+
+    if (gameOver || animating || spectating) return;
+
+    let dir = -1;
+    if (k === 'ArrowUp' || k.toLowerCase()==='w') dir=0;
+    if (k === 'ArrowRight' || k.toLowerCase()==='d') dir=1;
+    if (k === 'ArrowDown' || k.toLowerCase()==='s') dir=2;
+    if (k === 'ArrowLeft' || k.toLowerCase()==='a') dir=3;
+
+    if (dir >= 0) doMove(dir);
+  });
+
+  // Strength sliders
+  const sp = document.getElementById('strength-play');
+  const st = document.getElementById('strength-train');
+  const spv = document.getElementById('strength-play-val');
+  const stv = document.getElementById('strength-train-val');
+
+  sp.oninput = () => { playStrength = +sp.value; spv.textContent = playStrength; };
+  st.oninput = () => { trainStrength = +st.value; stv.textContent = trainStrength; };
+
+  // Initial values
+  sp.value = playStrength; spv.textContent = playStrength;
+  st.value = trainStrength; stv.textContent = trainStrength;
+
+  canvas.addEventListener('click', () => {
+    if (!spectating && !gameOver) {
+      // gentle nudge
+      const s = document.getElementById('status');
+      s.textContent = 'Use arrow keys or click AI Step';
+      s.style.display = 'block';
+      setTimeout(()=> s.style.display='none', 900);
+    }
+  });
+}
+
+// ==================== INIT ====================
+function init() {
+  canvas = document.getElementById('game');
+  ctx = canvas.getContext('2d', { alpha: true });
+
+  chartCanvas = document.getElementById('chart');
+  chartCtx = chartCanvas.getContext('2d');
+
+  if (!loadState() || !valueNet) {
+    valueNet = createValueNet();
+  }
+
+  setupInput();
+  updateStatsUI();
+  drawChart();
+
+  // Bootstrap a starting game
+  startNewGame();
+
+  // Gentle welcome if first time
+  setTimeout(() => {
+    const overlay = document.getElementById('overlay');
+    if (!overlay.classList.contains('hidden')) {
+      // already has content
+    }
+  }, 420);
+
+  // Autosave
+  setInterval(saveState, 14000);
+  window.addEventListener('beforeunload', saveState);
+
+  // Keyboard legend in console
+  console.log('%c[2048 AI] Arrow keys to play manually. S = spectate AI, C = continuous training. Watch the value net learn!', 'color:#64748b');
+
+  // Optional: auto-kick a tiny bit of training so first spectate is not random
+  setTimeout(() => {
+    if (episodes < 12 && recentScores.length < 5) {
+      // silent tiny bootstrap
+      for (let i=0; i<9; i++) {
+        // run micro games
+        let b = Array.from({length:SIZE},()=>Array(SIZE).fill(0));
+        addRandomTile(b); addRandomTile(b);
+        let sc = 0, m=0;
+        while (m++ < 90 && !isGameOver(b)) {
+          const d = getBestMove(b, 0);
+          const r = moveBoard(b, d);
+          if (r.moved) { b=r.board; sc+=r.gained; addRandomTile(b); }
+        }
+        episodes++;
+        recentScores.push(sc);
+        scoreHistory.push(sc);
+        if (scoreHistory.length > 38) scoreHistory.shift();
+      }
+      if (recentScores.length) {
+        const a = recentScores.reduce((x,y)=>x+y,0)/recentScores.length|0;
+        if (a>peakAvg) peakAvg = a;
+      }
+      updateStatsUI();
+      drawChart();
+      document.getElementById('ep-val').textContent = episodes.toLocaleString();
+    }
+  }, 650);
+}
+
+init();
+</script>
+</body>
+</html>
